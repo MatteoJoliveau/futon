@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use http::{header, response::Parts, HeaderMap, Method, Request, Response, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
+use std::fmt::Debug;
 use thiserror::Error;
 use tower::Service;
 use url::Url;
@@ -15,6 +16,11 @@ pub trait Client:
 {
 }
 
+impl<S> Client for S where
+    S: Clone + Service<Request<Bytes>, Response = Response<Bytes>, Error = ClientError>
+{
+}
+
 #[derive(Debug, Error)]
 pub enum ClientError {
     #[cfg(feature = "hyper")]
@@ -22,15 +28,15 @@ pub enum ClientError {
     Hyper(#[from] ::hyper::Error),
 }
 
-pub(crate) async fn head_request<H: Into<HeaderMap>>(
+#[tracing::instrument(skip(client, url), fields(url = %url))]
+pub(crate) async fn head_request<H: Debug + Into<HeaderMap>>(
     client: &mut impl Client,
-    method: Method,
     url: Url,
     credentials: &Credentials,
     headers: Option<H>,
 ) -> FutonResult<Parts> {
     let mut builder = Request::builder()
-        .method(method)
+        .method(Method::HEAD)
         .uri(url.to_string().parse::<http::uri::Uri>().unwrap());
 
     if let Some((map, headers)) = builder.headers_mut().zip(headers) {
@@ -48,8 +54,8 @@ pub(crate) async fn head_request<H: Into<HeaderMap>>(
     Ok(parts)
 }
 
-#[tracing::instrument(skip(client, body))]
-pub(crate) async fn json_request<T: Serialize, R: DeserializeOwned>(
+#[tracing::instrument(skip(client, url, body), fields(url = %url))]
+pub(crate) async fn json_request<T: Serialize + std::fmt::Debug, R: DeserializeOwned>(
     client: &mut impl Client,
     method: Method,
     url: Url,
@@ -57,6 +63,7 @@ pub(crate) async fn json_request<T: Serialize, R: DeserializeOwned>(
     body: Option<T>,
 ) -> FutonResult<R> {
     let has_body = body.is_some();
+
     let body = match body {
         Some(body) => Bytes::from(serde_json::to_vec(&body)?),
         None => Bytes::default(),
@@ -78,9 +85,7 @@ pub(crate) async fn json_request<T: Serialize, R: DeserializeOwned>(
         request.headers_mut().append(name, value);
     }
 
-    eprintln!("{request:?}");
     let res = client.call(request).await?;
-    eprintln!("{res:?}");
     let res = response_to_error(res)?;
 
     // optimization to avoid trying to deserialize a JSON response when the user will ignore it anyway
@@ -91,6 +96,21 @@ pub(crate) async fn json_request<T: Serialize, R: DeserializeOwned>(
         serde_json::from_slice(res.body())?
     };
     Ok(res)
+}
+
+#[tracing::instrument(skip(client, url, body), fields(url = %url))]
+pub(crate) async fn maybe_json_request<T: Serialize + std::fmt::Debug, R: DeserializeOwned>(
+    client: &mut impl Client,
+    method: Method,
+    url: Url,
+    credentials: &Credentials,
+    body: Option<T>,
+) -> FutonResult<Option<R>> {
+    match json_request(client, method, url, credentials, body).await {
+        Ok(res) => Ok(Some(res)),
+        Err(err) if err.is_not_found() => Ok(None),
+        Err(err) => Err(err),
+    }
 }
 
 fn response_to_error(response: Response<Bytes>) -> FutonResult<Response<Bytes>> {
@@ -116,6 +136,11 @@ fn response_to_error(response: Response<Bytes>) -> FutonResult<Response<Bytes>> 
     let err = match response.status() {
         StatusCode::NOT_FOUND => FutonError::NotFound(error),
         StatusCode::UNAUTHORIZED => FutonError::Unauthorized(error),
+        StatusCode::CONFLICT => FutonError::Conflict(error),
+        StatusCode::BAD_REQUEST => match error.reason.to_lowercase().trim() {
+            "invalid rev format" => FutonError::InvalidRevFormat(error),
+            _ => FutonError::UnknownBadRequest(error),
+        },
         _ => FutonError::UnknownError(error),
     };
 

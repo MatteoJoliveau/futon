@@ -10,6 +10,8 @@ pub enum FutonError {
     Client(#[from] ClientError),
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("querystring error: {0}")]
+    QueryString(#[from] serde_qs::Error),
     #[error("url error: {0}")]
     Url(#[from] url::ParseError),
     #[error("{0}")]
@@ -18,6 +20,14 @@ pub enum FutonError {
     Unauthorized(ErrorResponse),
     #[error("{0}")]
     UnknownError(ErrorResponse),
+    #[error("{0}")]
+    InvalidRevFormat(ErrorResponse),
+    #[error("{0}")]
+    UnknownBadRequest(ErrorResponse),
+    #[error("{0}")]
+    Conflict(ErrorResponse),
+    #[error("invalid database name: '{0}'. See: https://docs.couchdb.org/en/stable/api/database/common.html#put--db")]
+    InvalidDatabaseName(String),
 }
 
 impl FutonError {

@@ -23,11 +23,11 @@ impl<C: Client> Meta<C> {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn is_up(&self) -> FutonResult<bool> {
         let mut client = self.client.clone();
         let parts = head_request::<HeaderMap>(
             &mut client,
-            Method::GET,
             self.url.join("/_up").unwrap(),
             &self.credentials,
             None,
@@ -36,6 +36,7 @@ impl<C: Client> Meta<C> {
         Ok(parts.status.is_success())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn server_info(&self) -> FutonResult<ServerInstanceInfo> {
         let mut client = self.client.clone();
         json_request::<(), ServerInstanceInfo>(

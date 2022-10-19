@@ -3,8 +3,7 @@ use std::{future::Future, pin::Pin};
 use bytes::Bytes;
 use hyper::{client::HttpConnector, Body, Client, Request, Response};
 use tower::Service;
-
-use crate::client::Client as FutonClient;
+use tracing::Instrument;
 
 use super::ClientError;
 
@@ -36,8 +35,6 @@ impl Default for HyperClient {
     }
 }
 
-impl FutonClient for HyperClient {}
-
 impl Service<Request<Bytes>> for HyperClient {
     type Response = Response<Bytes>;
 
@@ -52,19 +49,29 @@ impl Service<Request<Bytes>> for HyperClient {
         self.client.poll_ready(cx).map_err(Into::into)
     }
 
+    #[tracing::instrument(skip(self))]
     fn call(&mut self, req: Request<Bytes>) -> Self::Future {
         let client = self.client.clone();
         let mut inner = std::mem::replace(&mut self.client, client);
-        Box::pin(async move {
-            let (parts, payload) = req.into_parts();
-            let body = Body::from(payload);
-            let req = Request::from_parts(parts, body);
+        let span = tracing::Span::current();
+        Box::pin(
+            async move {
+                let (parts, payload) = req.into_parts();
+                let body = Body::from(payload);
+                let req = Request::from_parts(parts, body);
 
-            let res = inner.call(req).await?;
+                let res = inner
+                    .call(req)
+                    .instrument(tracing::trace_span!("hyper request"))
+                    .await?;
 
-            let (parts, body) = res.into_parts();
-            let bytes = hyper::body::to_bytes(body).await?;
-            Ok(Response::from_parts(parts, bytes))
-        })
+                let (parts, body) = res.into_parts();
+                let bytes = hyper::body::to_bytes(body).await?;
+                let res = Response::from_parts(parts, bytes);
+                tracing::trace!(?res, "http call");
+                Ok(res)
+            }
+            .instrument(span),
+        )
     }
 }

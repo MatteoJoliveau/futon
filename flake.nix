@@ -14,6 +14,8 @@
           buildInputs = with pkgs; [
             just
             lld
+            cargo-watch
+            cargo-nextest
           ];
         };
       });

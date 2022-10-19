@@ -1,20 +1,26 @@
 use auth::Credentials;
-use client::{hyper::HyperClient, Client};
+
+use client::Client;
 use db::Database;
 use error::FutonError;
+
 use meta::Meta;
+
 use url::Url;
 
 pub mod auth;
 pub mod client;
 pub mod db;
+pub mod document;
 pub mod error;
 pub mod meta;
+pub mod request;
 pub mod response;
 
 pub type FutonResult<T> = std::result::Result<T, FutonError>;
 
-pub type DefaultClient = HyperClient;
+#[cfg(feature = "hyper")]
+pub type DefaultClient = client::hyper::HyperClient;
 
 pub struct Futon<C = DefaultClient> {
     client: C,
@@ -25,7 +31,7 @@ pub struct Futon<C = DefaultClient> {
 #[cfg(feature = "hyper")]
 impl Futon<DefaultClient> {
     pub fn new<U: Into<Url>>(url: U) -> Self {
-        let mut url: Url = url.into();
+        let url = url.into();
         let username = url.username();
         let credentials = if username.is_empty() {
             None
@@ -34,6 +40,11 @@ impl Futon<DefaultClient> {
         }
         .map(|(u, p)| Credentials::basic(u, p))
         .unwrap_or_default();
+        Self::new_with_credentials(url, credentials)
+    }
+
+    pub fn new_with_credentials<U: Into<Url>>(url: U, credentials: Credentials) -> Self {
+        let mut url = url.into();
         url.set_username("").unwrap();
         url.set_password(None).unwrap();
         Self {
@@ -54,10 +65,11 @@ impl<C: Client> Futon<C> {
     }
 
     pub fn db(&self, name: impl AsRef<str>) -> FutonResult<Database<C>> {
-        Ok(Database::new(
+        Database::new(
             self.client.clone(),
-            self.url.join(name.as_ref())?,
+            self.url.clone(),
+            name.as_ref(),
             self.credentials.clone(),
-        ))
+        )
     }
 }
