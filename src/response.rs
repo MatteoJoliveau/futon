@@ -88,6 +88,11 @@ impl Document for Tombstone {
         Some(&self.rev)
     }
 
+    fn set_id(&mut self, id: impl ToString) -> &mut Self {
+        self.id = id.to_string();
+        self
+    }
+
     fn set_rev(&mut self, rev: impl ToString) -> &mut Self {
         self.rev = rev.to_string();
         self

@@ -1,6 +1,6 @@
 use crate::{
     auth::Credentials,
-    client::{head_request, json_request, Client},
+    client::{head_request, old_json_request, Client},
     response::ServerInstanceInfo,
     FutonResult,
 };
@@ -39,7 +39,7 @@ impl<C: Client> Meta<C> {
     #[tracing::instrument(skip(self))]
     pub async fn server_info(&self) -> FutonResult<ServerInstanceInfo> {
         let mut client = self.client.clone();
-        json_request::<(), ServerInstanceInfo>(
+        old_json_request::<(), ServerInstanceInfo>(
             &mut client,
             Method::GET,
             self.url.join("/").unwrap(),

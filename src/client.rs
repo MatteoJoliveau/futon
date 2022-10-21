@@ -37,7 +37,7 @@ pub(crate) async fn head_request<H: Debug + Into<HeaderMap>>(
 ) -> FutonResult<Parts> {
     let mut builder = Request::builder()
         .method(Method::HEAD)
-        .uri(url.to_string().parse::<http::uri::Uri>().unwrap());
+        .uri(&url.to_string());
 
     if let Some((map, headers)) = builder.headers_mut().zip(headers) {
         *map = headers.into();
@@ -54,8 +54,49 @@ pub(crate) async fn head_request<H: Debug + Into<HeaderMap>>(
     Ok(parts)
 }
 
+#[tracing::instrument(skip(client, request))]
+pub(crate) async fn json_request<R: Serialize + Debug, T: DeserializeOwned>(
+    client: &mut impl Client,
+    credentials: &Credentials,
+    request: Request<R>,
+) -> FutonResult<T> {
+    let (mut parts, body) = request.into_parts();
+    let has_body = std::mem::size_of_val(&body) == 0;
+
+    let body = if has_body {
+        Bytes::from(serde_json::to_vec(&body)?)
+    } else {
+        Bytes::new()
+    };
+
+    parts
+        .headers
+        .insert(header::ACCEPT, "application/json".parse().unwrap());
+    parts
+        .headers
+        .insert(header::CONTENT_TYPE, "application/json".parse().unwrap());
+
+    if let Some((name, value)) = credentials.header() {
+        parts.headers.append(name, value);
+    }
+
+    let request = Request::from_parts(parts, body);
+
+    let res = client.call(request).await?;
+    let res = response_to_error(res)?;
+
+    // optimization to avoid trying to deserialize a JSON response when the user will ignore it anyway
+    // size_of::<T>() == 0 usually means an empty tuple
+    let res = if std::mem::size_of::<T>() == 0 {
+        serde_json::from_value(serde_json::Value::Null)?
+    } else {
+        serde_json::from_slice(res.body())?
+    };
+    Ok(res)
+}
+
 #[tracing::instrument(skip(client, url, body), fields(url = %url))]
-pub(crate) async fn json_request<T: Serialize + std::fmt::Debug, R: DeserializeOwned>(
+pub(crate) async fn old_json_request<T: Serialize + std::fmt::Debug, R: DeserializeOwned>(
     client: &mut impl Client,
     method: Method,
     url: Url,
@@ -106,7 +147,7 @@ pub(crate) async fn maybe_json_request<T: Serialize + std::fmt::Debug, R: Deseri
     credentials: &Credentials,
     body: Option<T>,
 ) -> FutonResult<Option<R>> {
-    match json_request(client, method, url, credentials, body).await {
+    match old_json_request(client, method, url, credentials, body).await {
         Ok(res) => Ok(Some(res)),
         Err(err) if err.is_not_found() => Ok(None),
         Err(err) => Err(err),

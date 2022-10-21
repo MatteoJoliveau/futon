@@ -3,7 +3,7 @@ use url::Url;
 
 use crate::{
     auth::Credentials,
-    client::{head_request, json_request, Client},
+    client::{head_request, old_json_request, Client},
     document::Documents,
     error::FutonError,
     request::DatabaseCreationParams,
@@ -46,10 +46,11 @@ impl<C: Client> Database<C> {
                 .await?;
         Ok(parts.status != StatusCode::NOT_FOUND)
     }
+
     #[tracing::instrument(skip(self))]
     pub async fn info(&self) -> FutonResult<DatabaseInfo> {
         let mut client = self.client.clone();
-        json_request::<(), DatabaseInfo>(
+        old_json_request::<(), DatabaseInfo>(
             &mut client,
             Method::GET,
             self.url.clone(),
@@ -66,7 +67,7 @@ impl<C: Client> Database<C> {
         let qs = serde_qs::to_string(&params)?;
         url.set_query(Some(&qs));
         tracing::debug!(%url, "creating database");
-        json_request::<(), ()>(
+        old_json_request::<(), ()>(
             &mut client,
             Method::PUT,
             self.url.clone(),
@@ -79,7 +80,7 @@ impl<C: Client> Database<C> {
     #[tracing::instrument(skip(self))]
     pub async fn delete(&self) -> FutonResult<()> {
         let mut client = self.client.clone();
-        json_request::<(), ()>(
+        old_json_request::<(), ()>(
             &mut client,
             Method::DELETE,
             self.url.clone(),
