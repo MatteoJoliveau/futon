@@ -1,15 +1,13 @@
-use auth::Credentials;
+pub use futon_core::Credentials;
 
-use client::Client;
 use db::Database;
 use error::FutonError;
 
+use futon_core::FutonClient;
 use meta::Meta;
 
 use url::Url;
 
-pub mod auth;
-pub mod client;
 pub mod db;
 pub mod document;
 pub mod error;
@@ -19,17 +17,13 @@ pub mod response;
 
 pub type FutonResult<T> = std::result::Result<T, FutonError>;
 
-#[cfg(feature = "hyper")]
-pub type DefaultClient = client::hyper::HyperClient;
-
-pub struct Futon<C = DefaultClient> {
-    client: C,
+pub struct Futon {
+    client: FutonClient,
     url: Url,
     credentials: Credentials,
 }
 
-#[cfg(feature = "hyper")]
-impl Futon<DefaultClient> {
+impl Futon {
     pub fn new<U: Into<Url>>(url: U) -> Self {
         let url = url.into();
         let username = url.username();
@@ -48,15 +42,15 @@ impl Futon<DefaultClient> {
         url.set_username("").unwrap();
         url.set_password(None).unwrap();
         Self {
-            client: DefaultClient::new(),
+            client: FutonClient::default(),
             url,
             credentials,
         }
     }
 }
 
-impl<C: Client> Futon<C> {
-    pub fn meta(&self) -> Meta<C> {
+impl Futon {
+    pub fn meta(&self) -> Meta {
         Meta::new(
             self.client.clone(),
             self.url.clone(),
@@ -64,7 +58,7 @@ impl<C: Client> Futon<C> {
         )
     }
 
-    pub fn db(&self, name: impl AsRef<str>) -> FutonResult<Database<C>> {
+    pub fn db(&self, name: impl AsRef<str>) -> FutonResult<Database> {
         Database::new(
             self.client.clone(),
             self.url.clone(),

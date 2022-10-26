@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use crate::document::Document;
 
@@ -50,16 +49,14 @@ pub struct Sizes {
     pub file: usize,
 }
 
-#[derive(Debug, Deserialize, Error)]
-#[error("{error}: {reason}")]
-pub struct ErrorResponse {
-    pub error: String,
-    pub reason: String,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct Ok {
     pub ok: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Rev {
+    pub rev: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,4 +94,36 @@ impl Document for Tombstone {
         self.rev = rev.to_string();
         self
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ViewResults<V, T> {
+    pub offset: usize,
+    pub total_rows: usize,
+    pub update_seq: Option<String>,
+    pub rows: Vec<ViewRow<V, T>>,
+}
+
+impl<V, T> ViewResults<V, T> {
+    pub fn iter(&self) -> std::slice::Iter<ViewRow<V, T>> {
+        self.rows.iter()
+    }
+}
+
+impl<V, T> IntoIterator for ViewResults<V, T> {
+    type Item = ViewRow<V, T>;
+
+    type IntoIter = <Vec<Self::Item> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rows.into_iter()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ViewRow<V, T> {
+    pub id: String,
+    pub key: String,
+    pub value: V,
+    pub doc: Option<T>,
 }

@@ -11,6 +11,7 @@ test-docker = []
 test-podman = []
 
 [dependencies]
+futon_core = { path = "./futon_core" }
 tower = { version = "0.4", features = ["util", "make"] }
 tower-http = { version = "0.3", features = ["trace"] }
 thiserror = "1"
@@ -47,3 +48,6 @@ dotenv = "0.15"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"]}
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 testcontainers = "0.14"
+
+[workspace]
+members = ["futon_core"]

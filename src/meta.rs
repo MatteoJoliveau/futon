@@ -1,21 +1,18 @@
-use crate::{
-    auth::Credentials,
-    client::{head_request, old_json_request, Client},
-    response::ServerInstanceInfo,
-    FutonResult,
-};
+use crate::{response::ServerInstanceInfo, FutonResult};
+use futon_core::{Credentials, Service};
 
-use http::{HeaderMap, Method};
+use futon_core::{FutonClient, FutonRequest};
+use http::Method;
 use url::Url;
 
-pub struct Meta<C: Client> {
-    client: C,
+pub struct Meta {
+    client: FutonClient,
     url: Url,
     credentials: Credentials,
 }
 
-impl<C: Client> Meta<C> {
-    pub(crate) fn new(client: C, url: Url, credentials: Credentials) -> Self {
+impl Meta {
+    pub(crate) fn new(client: FutonClient, url: Url, credentials: Credentials) -> Self {
         Self {
             client,
             url,
@@ -26,26 +23,26 @@ impl<C: Client> Meta<C> {
     #[tracing::instrument(skip(self))]
     pub async fn is_up(&self) -> FutonResult<bool> {
         let mut client = self.client.clone();
-        let parts = head_request::<HeaderMap>(
-            &mut client,
-            self.url.join("/_up").unwrap(),
-            &self.credentials,
-            None,
-        )
-        .await?;
-        Ok(parts.status.is_success())
+        let req = FutonRequest::new(self.url.clone())?
+            .method(Method::HEAD)?
+            .credentials(self.credentials.clone())
+            .path("_up");
+
+        let res = client.call(req).await?;
+
+        Ok(res.status().is_success())
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn server_info(&self) -> FutonResult<ServerInstanceInfo> {
         let mut client = self.client.clone();
-        old_json_request::<(), ServerInstanceInfo>(
-            &mut client,
-            Method::GET,
-            self.url.join("/").unwrap(),
-            &self.credentials,
-            None,
-        )
-        .await
+        let req = FutonRequest::new(self.url.clone())?
+            .credentials(self.credentials.clone())
+            .path("/");
+
+        let res = client.call(req).await?;
+
+        let info = res.error_for_status()?.body().json()?;
+        Ok(info)
     }
 }

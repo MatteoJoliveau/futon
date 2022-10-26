@@ -1,36 +1,8 @@
 use futon::{document::Document, error::FutonError, request::CopyDestination, response::Tombstone};
-use serde::{Deserialize, Serialize};
+
+use crate::common::TestDocument;
 
 mod common;
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-struct TestDocument {
-    #[serde(rename = "_id")]
-    id: String,
-    #[serde(rename = "_rev", skip_serializing_if = "Option::is_none")]
-    rev: Option<String>,
-    message: String,
-}
-
-impl Document for TestDocument {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn rev(&self) -> Option<&str> {
-        self.rev.as_deref()
-    }
-
-    fn set_id(&mut self, id: impl ToString) -> &mut Self {
-        self.id = id.to_string();
-        self
-    }
-
-    fn set_rev(&mut self, rev: impl ToString) -> &mut Self {
-        self.rev = Some(rev.to_string());
-        self
-    }
-}
 
 #[tokio::test]
 async fn it_creates_a_new_document() {

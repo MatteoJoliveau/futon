@@ -1,13 +1,16 @@
+use http::StatusCode;
 use thiserror::Error;
 
-use crate::{client::ClientError, response::ErrorResponse};
+use futon_core::ErrorResponse;
 
 #[derive(Debug, Error)]
 pub enum FutonError {
     #[error("http error: {0}")]
     Http(#[from] http::Error),
     #[error("client error: {0}")]
-    Client(#[from] ClientError),
+    Client(#[from] futon_core::Error),
+    #[error("request building error: {0}")]
+    Request(#[from] futon_core::RequestError),
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("querystring error: {0}")]
@@ -33,5 +36,20 @@ pub enum FutonError {
 impl FutonError {
     pub fn is_not_found(&self) -> bool {
         matches!(self, Self::NotFound(_))
+    }
+}
+
+impl From<ErrorResponse> for FutonError {
+    fn from(error: ErrorResponse) -> Self {
+        match error.status {
+            StatusCode::NOT_FOUND => FutonError::NotFound(error),
+            StatusCode::UNAUTHORIZED => FutonError::Unauthorized(error),
+            StatusCode::CONFLICT => FutonError::Conflict(error),
+            StatusCode::BAD_REQUEST => match error.reason.to_lowercase().trim() {
+                "invalid rev format" => FutonError::InvalidRevFormat(error),
+                _ => FutonError::UnknownBadRequest(error),
+            },
+            _ => FutonError::UnknownError(error),
+        }
     }
 }

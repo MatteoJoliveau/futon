@@ -1,8 +1,11 @@
 use std::future::Future;
 
-use futon::{auth::Credentials, db::Database, Futon};
+use futon::{db::Database, Credentials, Futon};
 
+mod document;
 mod image;
+
+pub use document::TestDocument;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -35,7 +38,7 @@ where
 pub async fn with_db<Test, Fut>(test: Test) -> TestResult
 where
     Fut: Future<Output = TestResult>,
-    Test: FnOnce(Database<futon::DefaultClient>) -> Fut,
+    Test: FnOnce(Database) -> Fut,
 {
     with_couchdb(|name, futon| async move {
         let db = futon.db(name)?;

@@ -1,39 +1,42 @@
-use http::{HeaderMap, Method, StatusCode};
+use futon_core::{Credentials, FutonClient, FutonRequest, Service};
+use http::{Method, StatusCode};
 use url::Url;
 
 use crate::{
-    auth::Credentials,
-    client::{head_request, old_json_request, Client},
-    document::Documents,
+    document::{Document, Documents},
     error::FutonError,
-    request::DatabaseCreationParams,
-    response::DatabaseInfo,
+    request::{DatabaseCreationParams, ViewParams},
+    response::{DatabaseInfo, Rev, ViewResults},
     FutonResult,
 };
+use std::fmt::Debug;
 
 const NAME_REGEX: &str = r#"^[a-z][a-z0-9_$()+/-]*$"#;
 
-pub struct Database<C> {
-    client: C,
+pub struct Database {
+    client: FutonClient,
     url: Url,
+    name: String,
     credentials: Credentials,
 }
 
-impl<C: Client> Database<C> {
+impl Database {
     pub(crate) fn new(
-        client: C,
+        client: FutonClient,
         url: Url,
-        name: &str,
+        name: impl ToString,
         credentials: Credentials,
     ) -> FutonResult<Self> {
         let re = regex::Regex::new(NAME_REGEX).unwrap();
-        if !re.is_match(name) {
-            return Err(FutonError::InvalidDatabaseName(name.to_string()));
+        let name = name.to_string();
+        if !re.is_match(&name) {
+            return Err(FutonError::InvalidDatabaseName(name));
         }
 
         Ok(Self {
             client,
-            url: url.join(name)?,
+            url,
+            name,
             credentials,
         })
     }
@@ -41,56 +44,70 @@ impl<C: Client> Database<C> {
     #[tracing::instrument(skip(self))]
     pub async fn exists(&self) -> FutonResult<bool> {
         let mut client = self.client.clone();
-        let parts =
-            head_request::<HeaderMap>(&mut client, self.url.clone(), &self.credentials, None)
-                .await?;
-        Ok(parts.status != StatusCode::NOT_FOUND)
+
+        let req = FutonRequest::new(self.url.clone())?
+            .method(Method::HEAD)?
+            .credentials(self.credentials.clone())
+            .database(&self.name);
+
+        let res = client.call(req).await?;
+
+        Ok(res.status() != StatusCode::NOT_FOUND)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn info(&self) -> FutonResult<DatabaseInfo> {
         let mut client = self.client.clone();
-        old_json_request::<(), DatabaseInfo>(
-            &mut client,
-            Method::GET,
-            self.url.clone(),
-            &self.credentials,
-            None,
-        )
-        .await
+
+        let req = FutonRequest::new(self.url.clone())?
+            .credentials(self.credentials.clone())
+            .database(&self.name);
+
+        let res = client.call(req).await?;
+
+        let info = res.error_for_status()?.into_body().json()?;
+        Ok(info)
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn create(&self, params: DatabaseCreationParams) -> FutonResult<()> {
         let mut client = self.client.clone();
-        let mut url = self.url.clone();
-        let qs = serde_qs::to_string(&params)?;
-        url.set_query(Some(&qs));
-        tracing::debug!(%url, "creating database");
-        old_json_request::<(), ()>(
-            &mut client,
-            Method::PUT,
-            self.url.clone(),
-            &self.credentials,
-            None,
-        )
-        .await
+
+        let req = FutonRequest::new(self.url.clone())?
+            .method(Method::PUT)?
+            .credentials(self.credentials.clone())
+            .database(&self.name)
+            .query_string(&params)?;
+
+        tracing::debug!(%req, "creating database");
+
+        client.call(req).await?.error_for_status()?;
+        Ok(())
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn delete(&self) -> FutonResult<()> {
         let mut client = self.client.clone();
-        old_json_request::<(), ()>(
-            &mut client,
-            Method::DELETE,
-            self.url.clone(),
-            &self.credentials,
-            None,
-        )
-        .await
+
+        let req = FutonRequest::new(self.url.clone())?
+            .method(Method::DELETE)?
+            .credentials(self.credentials.clone())
+            .database(&self.name);
+
+        client.call(req).await?.error_for_status()?;
+        Ok(())
     }
 
-    pub fn documents(&self) -> Documents<'_, C> {
-        Documents::new(&self.client, &self.url, &self.credentials)
+    #[tracing::instrument(skip(self))]
+    pub async fn all_docs<D: Document + Debug>(
+        &self,
+        params: ViewParams,
+    ) -> FutonResult<ViewResults<Rev, D>> {
+        todo!()
+    }
+
+    #[inline]
+    pub fn documents(&self) -> Documents<'_> {
+        Documents::new(&self.client, &self.url, &self.name, &self.credentials)
     }
 }

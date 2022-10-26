@@ -1,5 +1,7 @@
 mod common;
 
+use common::TestDocument;
+
 use futon::{error::FutonError, request::DatabaseCreationParams};
 
 #[tokio::test]
@@ -78,4 +80,31 @@ fn it_validates_db_names() {
             .to_string()
             .contains("https://docs.couchdb.org/en/stable/api/database/common.html#put--db"));
     }
+}
+
+#[tokio::test]
+async fn it_lists_all_documents() {
+    tracing_subscriber::fmt::init();
+
+    common::with_db(|db| async move {
+        let doc = TestDocument {
+            id: "test".to_string(),
+            rev: None,
+            message: "Hello Futon!".to_string(),
+        };
+
+        let docs = db.documents();
+        let doc = docs.create(doc).await?;
+
+        let all_docs = db.all_docs::<TestDocument>(Default::default()).await?;
+        assert_eq!(all_docs.offset, 0);
+        assert_eq!(all_docs.total_rows, 1);
+        assert!(all_docs.update_seq.is_none());
+        let mut iter = all_docs.into_iter();
+        assert_eq!(iter.next().and_then(|row| row.doc), Some(doc));
+
+        Ok(())
+    })
+    .await
+    .unwrap();
 }
