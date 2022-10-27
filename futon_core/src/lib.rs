@@ -62,7 +62,7 @@ impl Service<FutonRequest> for FutonClient {
                 let body = hyper::body::to_bytes(body).await?;
                 let res = Response::from_parts(parts, body);
                 let res = FutonResponse::try_from(res)?;
-                tracing::debug!(status = %res.status(), "request completed");
+                tracing::debug!(status = %res.status(), ?res, "request completed");
                 Ok(res)
             }
             .instrument(tracing::debug_span!("request")),

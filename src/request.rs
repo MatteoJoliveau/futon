@@ -55,28 +55,36 @@ impl<D: Document> From<D> for CopyDestination {
 
 #[derive(Debug, Serialize)]
 pub struct ViewParams {
-    conflicts: bool,
-    descending: bool,
-    end_key: Option<serde_json::Value>,
-    end_key_doc_id: Option<String>,
-    group: bool,
-    group_level: Option<usize>,
-    include_docs: bool,
-    attachments: bool,
+    pub conflicts: bool,
+    pub descending: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_key: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_key_doc_id: Option<String>,
+    pub group: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_level: Option<usize>,
+    pub include_docs: bool,
+    pub attachments: bool,
     #[serde(rename = "att_encoding_info")]
-    attachments_encoding_info: bool,
-    inclusive_end: bool,
-    key: Option<serde_json::Value>,
-    keys: Option<Vec<serde_json::Value>>,
-    limit: Option<usize>,
-    reduce: bool,
-    skip: usize,
-    sorted: bool,
-    stable: bool,
-    start_key: Option<serde_json::Value>,
-    start_key_doc_id: Option<String>,
-    update: Update,
-    update_seq: bool,
+    pub attachments_encoding_info: bool,
+    pub inclusive_end: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keys: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    pub reduce: bool,
+    pub skip: usize,
+    pub sorted: bool,
+    pub stable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_key: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_key_doc_id: Option<String>,
+    pub update: Update,
+    pub update_seq: bool,
 }
 
 #[derive(Debug, Serialize)]

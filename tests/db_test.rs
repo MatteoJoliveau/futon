@@ -2,7 +2,10 @@ mod common;
 
 use common::TestDocument;
 
-use futon::{error::FutonError, request::DatabaseCreationParams};
+use futon::{
+    error::FutonError,
+    request::{DatabaseCreationParams, ViewParams},
+};
 
 #[tokio::test]
 async fn it_creates_and_deletes_a_db() {
@@ -96,7 +99,12 @@ async fn it_lists_all_documents() {
         let docs = db.documents();
         let doc = docs.create(doc).await?;
 
-        let all_docs = db.all_docs::<TestDocument>(Default::default()).await?;
+        let all_docs = db
+            .all_docs::<TestDocument>(ViewParams {
+                include_docs: true,
+                ..Default::default()
+            })
+            .await?;
         assert_eq!(all_docs.offset, 0);
         assert_eq!(all_docs.total_rows, 1);
         assert!(all_docs.update_seq.is_none());

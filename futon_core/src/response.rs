@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 use crate::FutonBody;
 
+#[derive(Debug)]
 pub struct FutonResponse {
     status: StatusCode,
     body: FutonBody,
@@ -22,12 +23,8 @@ impl FutonResponse {
         self.body
     }
 
-    pub fn maybe_body(&self) -> Option<&FutonBody> {
-        if self.status == StatusCode::NOT_FOUND {
-            return None;
-        }
-
-        Some(&self.body)
+    pub fn is_not_found(&self) -> bool {
+        self.status == StatusCode::NOT_FOUND
     }
 
     pub fn error_for_status(self) -> Result<Self, ErrorResponse> {

@@ -9,6 +9,7 @@ use meta::Meta;
 use url::Url;
 
 pub mod db;
+pub mod ddoc;
 pub mod document;
 pub mod error;
 pub mod meta;

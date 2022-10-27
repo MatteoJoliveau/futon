@@ -118,7 +118,7 @@ impl FutonRequest {
 
     pub fn json<B: Serialize + Debug>(mut self, body: B) -> Result<Self, RequestError> {
         self.body = FutonBody::from_json(body)?;
-        self.header(http::header::CONTENT_TYPE, "applicaiton/json")
+        self.header(http::header::CONTENT_TYPE, "application/json")
     }
 
     pub fn path(mut self, path: &str) -> Self {

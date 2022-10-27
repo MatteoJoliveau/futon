@@ -3,6 +3,7 @@ use http::{Method, StatusCode};
 use url::Url;
 
 use crate::{
+    ddoc::DesignDocuments,
     document::{Document, Documents},
     error::FutonError,
     request::{DatabaseCreationParams, ViewParams},
@@ -103,11 +104,18 @@ impl Database {
         &self,
         params: ViewParams,
     ) -> FutonResult<ViewResults<Rev, D>> {
-        todo!()
+        self.design_docs()
+            .execute_builtin_view("_all_docs", params)
+            .await
     }
 
     #[inline]
     pub fn documents(&self) -> Documents<'_> {
         Documents::new(&self.client, &self.url, &self.name, &self.credentials)
+    }
+
+    #[inline]
+    pub fn design_docs(&self) -> DesignDocuments<'_> {
+        DesignDocuments::new(&self.client, &self.url, &self.name, &self.credentials)
     }
 }

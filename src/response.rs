@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::document::Document;
 
@@ -28,7 +29,7 @@ pub struct DatabaseInfo {
     pub doc_count: usize,
     pub doc_del_count: usize,
     pub instance_start_time: String,
-    pub props: HashMap<String, String>,
+    pub props: HashMap<String, Value>,
     pub purge_seq: String,
     pub sizes: Sizes,
     pub update_seq: String,

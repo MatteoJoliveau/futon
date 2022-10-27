@@ -117,12 +117,12 @@ impl<'db> Documents<'db> {
 
         let res = client.call(req).await?;
 
-        let doc = res
-            .error_for_status()?
-            .maybe_body()
-            .map(|body| body.json())
-            .transpose()?;
-        Ok(doc)
+        if res.is_not_found() {
+            return Ok(None);
+        }
+
+        let doc = res.error_for_status()?.into_body().json()?;
+        Ok(Some(doc))
     }
 
     #[tracing::instrument(skip(self))]
