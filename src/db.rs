@@ -104,7 +104,7 @@ impl Database {
         &self,
         params: ViewParams,
     ) -> FutonResult<ViewResults<Rev, D>> {
-        self.design_docs()
+        self.design_docs(None)
             .execute_builtin_view("_all_docs", params)
             .await
     }
@@ -112,11 +112,11 @@ impl Database {
     #[tracing::instrument(skip(self))]
     pub async fn all_docs_in_partition<D: Document + Debug>(
         &self,
-        partition: &str,
+        partition: String,
         params: ViewParams,
     ) -> FutonResult<ViewResults<Rev, D>> {
-        self.design_docs()
-            .execute_builtin_view(&format!("{partition}/_all_docs"), params)
+        self.design_docs(Some(partition))
+            .execute_builtin_view("_all_docs", params)
             .await
     }
 
@@ -126,7 +126,13 @@ impl Database {
     }
 
     #[inline]
-    pub fn design_docs(&self) -> DesignDocuments<'_> {
-        DesignDocuments::new(&self.client, &self.url, &self.name, &self.credentials)
+    pub fn design_docs(&self, partition: Option<String>) -> DesignDocuments<'_> {
+        DesignDocuments::new(
+            &self.client,
+            &self.url,
+            partition,
+            &self.name,
+            &self.credentials,
+        )
     }
 }

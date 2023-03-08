@@ -112,6 +112,7 @@ impl Document for DesignDocument {
 pub struct DesignDocuments<'db> {
     client: &'db FutonClient,
     url: &'db Url,
+    partition: Option<String>,
     db_name: &'db str,
     credentials: &'db Credentials,
 }
@@ -120,12 +121,14 @@ impl<'db> DesignDocuments<'db> {
     pub fn new(
         client: &'db FutonClient,
         url: &'db Url,
+        partition: Option<String>,
         db_name: &'db str,
         credentials: &'db Credentials,
     ) -> Self {
         Self {
             client,
             url,
+            partition,
             db_name,
             credentials,
         }
@@ -157,7 +160,6 @@ impl<'db> DesignDocuments<'db> {
         todo!()
     }
 
-    #[tracing::instrument(skip(self))]
     pub async fn execute_builtin_view<V, T>(
         &self,
         view: &str,
@@ -168,8 +170,12 @@ impl<'db> DesignDocuments<'db> {
         T: DeserializeOwned,
     {
         let mut client = self.client.clone();
+        let url = match self.partition {
+            Some(ref partition) => self.url.join(&format!("_partition/{partition}")).unwrap(),
+            None => self.url.clone(),
+        };
 
-        let req = FutonRequest::new(self.url.clone())?
+        let req = FutonRequest::new(url)?
             .credentials(self.credentials.clone())
             .method(Method::POST)?
             .database(self.db_name)
