@@ -109,6 +109,17 @@ impl Database {
             .await
     }
 
+    #[tracing::instrument(skip(self))]
+    pub async fn all_docs_in_partition<D: Document + Debug>(
+        &self,
+        partition: &str,
+        params: ViewParams,
+    ) -> FutonResult<ViewResults<Rev, D>> {
+        self.design_docs()
+            .execute_builtin_view(&format!("{partition}/_all_docs"), params)
+            .await
+    }
+
     #[inline]
     pub fn documents(&self) -> Documents<'_> {
         Documents::new(&self.client, &self.url, &self.name, &self.credentials)
