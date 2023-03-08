@@ -42,7 +42,7 @@ impl Service<FutonRequest> for FutonClient {
 
     type Error = error::Error;
 
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send >>;
 
     fn poll_ready(
         &mut self,
