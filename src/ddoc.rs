@@ -170,17 +170,18 @@ impl<'db> DesignDocuments<'db> {
         T: DeserializeOwned,
     {
         let mut client = self.client.clone();
-        let url = match self.partition {
-            Some(ref partition) => self.url.join(&format!("_partition/{partition}")).unwrap(),
-            None => self.url.clone(),
-        };
 
-        let req = FutonRequest::new(url)?
+        let req = FutonRequest::new(self.url.clone())?
             .credentials(self.credentials.clone())
             .method(Method::POST)?
             .database(self.db_name)
             .document(view, None)
             .json(params)?;
+
+        let req = match self.partition {
+            Some(ref partition) => req.partition(partition),
+            None => req,
+        };
 
         let res = client.call(req).await?;
 

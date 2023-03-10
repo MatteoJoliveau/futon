@@ -131,6 +131,19 @@ impl FutonRequest {
         self.path(db)
     }
 
+    pub fn partition(mut self, partition: &str) -> Self {
+        if self.url.path() == "/" {
+            panic!("cannot construct a partition URL without a database prefix",);
+        }
+
+        self.url
+            .path_segments_mut()
+            .unwrap()
+            .push("_partition")
+            .push(partition);
+        self
+    }
+
     pub fn document(mut self, id: &str, rev: Option<&str>) -> Self {
         if self.url.path() == "/" {
             panic!("cannot construct a document URL without a database prefix",);
