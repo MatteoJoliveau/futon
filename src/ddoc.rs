@@ -174,14 +174,14 @@ impl<'db> DesignDocuments<'db> {
         let req = FutonRequest::new(self.url.clone())?
             .credentials(self.credentials.clone())
             .method(Method::POST)?
-            .database(self.db_name)
-            .document(view, None)
-            .json(params)?;
+            .database(self.db_name);
 
         let req = match self.partition {
             Some(ref partition) => req.partition(partition),
             None => req,
-        };
+        }
+        .document(view, None)
+        .json(params)?;
 
         let res = client.call(req).await?;
 
